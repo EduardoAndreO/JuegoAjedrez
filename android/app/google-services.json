@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "745746510148",
+    "project_id": "juegoajedrez-20753",
+    "storage_bucket": "juegoajedrez-20753.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:745746510148:android:022973b87139f832056711",
+        "android_client_info": {
+          "package_name": "com.juegoajedrez"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDG4VA1UxAlqsB2hgOhSOjXJS2jrGkcSEg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
