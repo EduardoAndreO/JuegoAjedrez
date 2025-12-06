@@ -1,9 +1,12 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput } from 'react-native';
 
 const HomeScreen = ({ navigation, isDarkMode, toggleDarkMode }) => {
+  const [playerWhiteName, setPlayerWhiteName] = useState('Blanco');
+  const [playerBlackName, setPlayerBlackName] = useState('Negro');
+
   const startNewGame = () => {
-    navigation.navigate('Game');
+    navigation.navigate('Game', { playerWhiteName, playerBlackName });
   };
 
   const theme = isDarkMode ? darkTheme : lightTheme;

@@ -6,17 +6,25 @@ import { Color } from '../types/index.js';
 import { GameRules } from '../logic/gameRules.js';
 import { gameService } from '../services/gameService.js';
 
-const GameScreen = ({ navigation, isDarkMode, toggleDarkMode }) => {
+const GameScreen = ({ navigation, route, isDarkMode, toggleDarkMode }) => {
   const [game, setGame] = useState(new Game());
   const [gameStatus, setGameStatus] = useState('');
   const [gameId, setGameId] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
   const [tick, setTick] = useState(0); // for forcing re-render after mutations
 
+  // Nombres y contadores de movimientos
+  const params = route?.params || {};
+  const [whiteName, setWhiteName] = useState(params.playerWhiteName || 'Blanco');
+  const [blackName, setBlackName] = useState(params.playerBlackName || 'Negro');
+  const [whiteMoveCount, setWhiteMoveCount] = useState(0);
+  const [blackMoveCount, setBlackMoveCount] = useState(0);
+
   const theme = isDarkMode ? darkTheme : lightTheme;
 
   useEffect(() => {
-    checkGameStatus();
+    // Mantener actualización de estado tras mutaciones (usa tick para forzar)
+    // checkGameStatus(); kept for backwards compat but call will be made on tick change
   }, [game]);
 
   // Generar ID único para la partida
@@ -41,6 +49,18 @@ const GameScreen = ({ navigation, isDarkMode, toggleDarkMode }) => {
       setGameStatus('');
     }
   };
+
+  const updateMoveCounts = () => {
+    const len = game.getMoveHistory().length;
+    setWhiteMoveCount(Math.ceil(len / 2));
+    setBlackMoveCount(Math.floor(len / 2));
+  };
+
+  useEffect(() => {
+    // cada vez que cambie el tick (se hizo un movimiento o undo), actualizamos contadores y estado
+    updateMoveCounts();
+    checkGameStatus();
+  }, [tick]);
 
   const handleMove = async (from, to) => {
     const newGame = game;
@@ -80,6 +100,8 @@ const GameScreen = ({ navigation, isDarkMode, toggleDarkMode }) => {
   const handleNewGame = () => {
     setGame(new Game());
     setTick(0);
+    setWhiteMoveCount(0);
+    setBlackMoveCount(0);
     const newGameId = `game_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     setGameId(newGameId);
   };
@@ -138,9 +160,11 @@ const GameScreen = ({ navigation, isDarkMode, toggleDarkMode }) => {
 
       <View style={[styles.header, { backgroundColor: theme.bgSecondary }]}>
         <Text style={[styles.title, { color: theme.text }]}>Juego de Ajedrez</Text>
-        <Text style={[styles.playerInfo, { color: theme.textSecondary }]}>
-          Turno: {game.getCurrentPlayer() === Color.WHITE ? 'Blanco' : 'Negro'}
-        </Text>
+        <View style={{ width: '100%', flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 12 }}>
+          <Text style={[styles.playerInfo, { color: theme.textSecondary }]}>{whiteName} (Blancas): {whiteMoveCount}</Text>
+          <Text style={[styles.playerInfo, { color: theme.textSecondary }]}>Turno: {game.getCurrentPlayer() === Color.WHITE ? 'Blanco' : 'Negro'}</Text>
+          <Text style={[styles.playerInfo, { color: theme.textSecondary }]}>{blackName} (Negras): {blackMoveCount}</Text>
+        </View>
         {gameStatus && <Text style={[styles.status, { color: theme.statusColor }]}>{gameStatus}</Text>}
       </View>
 

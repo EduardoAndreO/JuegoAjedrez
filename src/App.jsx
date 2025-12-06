@@ -7,8 +7,8 @@ const App = () => {
   const [navigationState, setNavigationState] = React.useState({ screen: 'Home' });
   const [isDarkMode, setIsDarkMode] = React.useState(false);
 
-  const navigate = (screenName) => {
-    setNavigationState({ screen: screenName });
+  const navigate = (screenName, params = null) => {
+    setNavigationState({ screen: screenName, params });
   };
 
   const toggleDarkMode = () => {
@@ -21,7 +21,7 @@ const App = () => {
         <HomeScreen navigation={{ navigate }} isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} />
       )}
       {navigationState.screen === 'Game' && (
-        <GameScreen navigation={{ navigate }} isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} />
+        <GameScreen navigation={{ navigate }} route={{ params: navigationState.params }} isDarkMode={isDarkMode} toggleDarkMode={toggleDarkMode} />
       )}
     </View>
   );
