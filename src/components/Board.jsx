@@ -1,13 +1,20 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Text, Dimensions } from 'react-native';
 import { MoveValidator } from '../logic/moveValidator.js';
 import PieceComponent from './Piece.jsx';
+import AnimatedPiece from './AnimatedPiece.jsx';
 
-const BoardComponent = ({ board, onMove }) => {
+const BoardComponent = ({ board, onMove, flipped = false }) => {
   const [selectedPosition, setSelectedPosition] = useState(null);
   const [validMoves, setValidMoves] = useState([]);
 
-  const handleSquarePress = (position) => {
+  const mapDisplayToLogical = (position) => {
+    if (!flipped) return position;
+    return { row: 7 - position.row, col: 7 - position.col };
+  };
+
+  const handleSquarePress = (displayPosition) => {
+    const position = mapDisplayToLogical(displayPosition);
     const piece = board.getPiece(position);
 
     if (selectedPosition) {
@@ -45,30 +52,38 @@ const BoardComponent = ({ board, onMove }) => {
     }
   };
 
-  const isHighlighted = (position) => {
-    return selectedPosition ? selectedPosition.row === position.row && selectedPosition.col === position.col : false;
+  const isHighlighted = (displayPosition) => {
+    const logical = mapDisplayToLogical(displayPosition);
+    return selectedPosition ? selectedPosition.row === logical.row && selectedPosition.col === logical.col : false;
   };
 
-  const isValidMove = (position) => {
-    return validMoves.some(m => m.row === position.row && m.col === position.col);
+  const isValidMove = (displayPosition) => {
+    const logical = mapDisplayToLogical(displayPosition);
+    return validMoves.some(m => m.row === logical.row && m.col === logical.col);
   };
 
   const renderSquare = (row, col) => {
-    const piece = board.getPiece({ row, col });
+    const logicalPos = mapDisplayToLogical({ row, col });
+    const piece = board.getPiece(logicalPos);
     const isLight = (row + col) % 2 === 0;
+    const { width } = Dimensions.get('window');
+    const boardPadding = 16;
+    const maxSquare = Math.floor((width - boardPadding) / 8);
+    const squareSize = Math.min(60, maxSquare);
 
     return (
       <TouchableOpacity
         key={`${row}-${col}`}
         style={[
           styles.square,
+          { width: squareSize, height: squareSize },
           isLight ? styles.lightSquare : styles.darkSquare,
           isHighlighted({ row, col }) && styles.selectedSquare,
           isValidMove({ row, col }) && styles.validMoveSquare,
         ]}
         onPress={() => handleSquarePress({ row, col })}
       >
-        {piece && <PieceComponent piece={piece} />}
+        {piece && <AnimatedPiece piece={piece} position={logicalPos} squareSize={squareSize} />}
         {isValidMove({ row, col }) && <View style={styles.moveIndicator} />}
       </TouchableOpacity>
     );

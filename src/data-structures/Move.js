@@ -18,6 +18,15 @@ export class Move {
   }
 
   toString() {
-    return `${this.piece}: (${this.from.row}, ${this.from.col}) -> (${this.to.row}, ${this.to.col})`;
+    const names = {
+      pawn: 'Peón',
+      knight: 'Caballo',
+      bishop: 'Alfil',
+      rook: 'Torre',
+      queen: 'Reina',
+      king: 'Rey',
+    };
+    const pieceName = names[this.piece] || this.piece;
+    return `${pieceName}: (${this.from.row}, ${this.from.col}) -> (${this.to.row}, ${this.to.col})`;
   }
 }

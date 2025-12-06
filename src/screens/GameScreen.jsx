@@ -1,16 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Text, TouchableOpacity, Alert } from 'react-native';
+import { View, StyleSheet, Text, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import BoardComponent from '../components/Board.jsx';
 import { Game } from '../data-structures/Game.js';
 import { Color } from '../types/index.js';
 import { GameRules } from '../logic/gameRules.js';
 import { gameService } from '../services/gameService.js';
 
-const GameScreen = () => {
+const GameScreen = ({ navigation, isDarkMode, toggleDarkMode }) => {
   const [game, setGame] = useState(new Game());
   const [gameStatus, setGameStatus] = useState('');
   const [gameId, setGameId] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [tick, setTick] = useState(0); // for forcing re-render after mutations
+
+  const theme = isDarkMode ? darkTheme : lightTheme;
 
   useEffect(() => {
     checkGameStatus();
@@ -29,12 +32,25 @@ const GameScreen = () => {
     const currentPlayer = game.getCurrentPlayer();
 
     if (GameRules.isCheckmate(board, currentPlayer)) {
-      setGameStatus('Checkmate! ' + (currentPlayer === Color.WHITE ? 'Black' : 'White') + ' wins!');
+      setGameStatus('Jaque mate. ' + (currentPlayer === Color.WHITE ? 'Negro' : 'Blanco') + ' gana.');
     } else if (GameRules.isCheck(board, currentPlayer)) {
+      setGameStatus('¡Jaque!');
+    } else if (GameRules.isStalemate(board, currentPlayer)) {
+      setGameStatus('¡Tablas!');
+    } else {
+      setGameStatus('');
+    }
+  };
+
   const handleMove = async (from, to) => {
     const newGame = game;
     if (newGame.makeMove(from, to)) {
-      setGame(new Game());
+      // trigger re-render without resetting game
+      setTick(t => t + 1);
+            // Verificar estado del juego después del movimiento
+            setTimeout(() => {
+              checkGameStatus();
+            }, 100);
       // Guardar el movimiento en Firebase
       if (gameId) {
         try {
@@ -54,12 +70,16 @@ const GameScreen = () => {
   const handleUndo = () => {
     const newGame = game;
     if (newGame.undoMove()) {
-      setGame(new Game());
+            setTimeout(() => {
+              checkGameStatus();
+            }, 100);
+      setTick(t => t + 1);
     }
   };
 
   const handleNewGame = () => {
     setGame(new Game());
+    setTick(0);
     const newGameId = `game_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     setGameId(newGameId);
   };
@@ -71,33 +91,14 @@ const GameScreen = () => {
     try {
       const gameData = {
         currentPlayer: game.getCurrentPlayer(),
-      <View style={styles.controls}>
-        <TouchableOpacity style={styles.button} onPress={handleUndo}>
-          <Text style={styles.buttonText}>Undo</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.button} onPress={handleNewGame}>
-          <Text style={styles.buttonText}>New Game</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.firebaseControls}>
-        <TouchableOpacity 
-          style={[styles.firebaseButton, isSaving && styles.buttonDisabled]} 
-          onPress={handleSaveGame}
-          disabled={isSaving}
-        >
-          <Text style={styles.firebaseButtonText}>
-            {isSaving ? 'Saving...' : '💾 Save to Firebase'}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.firebaseButton} onPress={handleLoadGame}>
-          <Text style={styles.firebaseButtonText}>📥 Load from Firebase</Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.gameIdContainer}>
-        <Text style={styles.gameIdLabel}>Game ID: {gameId?.slice(0, 15)}...</Text>
-      </View>lert('Éxito', '¡Partida guardada en Firebase!');
+        moveCount: game.getMoveHistory().length,
+        moves: game.getMoveHistory().map(m => m.toString()),
+        isGameOver: game.isGameFinished(),
+        winner: game.getWinner(),
+      };
+      
+      await gameService.saveGame(gameId, gameData);
+      Alert.alert('Éxito', '¡Partida guardada en Firebase!');
     } catch (error) {
       Alert.alert('Error', 'Error al guardar la partida: ' + error.message);
     } finally {
@@ -118,149 +119,271 @@ const GameScreen = () => {
     } catch (error) {
       Alert.alert('Error', 'Error al cargar la partida: ' + error.message);
     }
-  };const newGame = game;
-    if (newGame.undoMove()) {
-      setGame(new Game());
-    }
   };
 
-  const handleNewGame = () => {
-    setGame(new Game());
+  const handleGoHome = () => {
+    navigation.navigate('Home');
   };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Chess Game</Text>
-        <Text style={styles.playerInfo}>
-          Current Player: {game.getCurrentPlayer() === Color.WHITE ? 'White' : 'Black'}
+    <ScrollView style={[styles.container, { backgroundColor: theme.bgPrimary }]}>
+      <View style={[styles.topBar, { backgroundColor: theme.bgSecondary }]}>
+        <TouchableOpacity onPress={handleGoHome} style={styles.backButton}>
+          <Text style={[styles.backButtonText, { color: theme.text }]}>← Inicio</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={toggleDarkMode} style={styles.themeToggle}>
+          <Text style={styles.themeToggleText}>{isDarkMode ? '☀️' : '🌙'}</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={[styles.header, { backgroundColor: theme.bgSecondary }]}>
+        <Text style={[styles.title, { color: theme.text }]}>Juego de Ajedrez</Text>
+        <Text style={[styles.playerInfo, { color: theme.textSecondary }]}>
+          Turno: {game.getCurrentPlayer() === Color.WHITE ? 'Blanco' : 'Negro'}
         </Text>
-        {gameStatus && <Text style={styles.status}>{gameStatus}</Text>}
+        {gameStatus && <Text style={[styles.status, { color: theme.statusColor }]}>{gameStatus}</Text>}
       </View>
 
-      <View style={styles.boardContainer}>
-        <BoardComponent board={game.getBoard()} onMove={handleMove} />
+      <View style={[styles.boardContainer, { backgroundColor: theme.bgSecondary }]}>
+        <BoardComponent board={game.getBoard()} onMove={handleMove} flipped={game.getCurrentPlayer() === Color.BLACK} />
       </View>
 
-      <View style={styles.controls}>
-        <TouchableOpacity style={styles.button} onPress={handleUndo}>
-          <Text style={styles.buttonText}>Undo</Text>
+      <View style={[styles.controls, { backgroundColor: theme.bgSecondary }]}>
+        <TouchableOpacity style={[styles.button, { backgroundColor: theme.buttonBg }]} onPress={handleUndo}>
+          <Text style={[styles.buttonText, { color: theme.buttonText }]}>⟲ Deshacer</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.button} onPress={handleNewGame}>
-          <Text style={styles.buttonText}>New Game</Text>
+        <TouchableOpacity style={[styles.button, { backgroundColor: theme.buttonBg }]} onPress={handleNewGame}>
+          <Text style={[styles.buttonText, { color: theme.buttonText }]}>✨ Nueva partida</Text>
         </TouchableOpacity>
       </View>
 
-  moveHistoryText: {
-    fontSize: 12,
-    color: '#666',
-    height: 100,
-  },
-  firebaseControls: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 10,
-    paddingHorizontal: 10,
-  },
-  firebaseButton: {
-    backgroundColor: '#27ae60',
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    borderRadius: 5,
-    flex: 1,
-    marginHorizontal: 5,
-    alignItems: 'center',
-  },
-  firebaseButtonText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  buttonDisabled: {
-    backgroundColor: '#95a5a6',
-  },
-  gameIdContainer: {
-    backgroundColor: '#ecf0f1',
-    padding: 8,
-    borderRadius: 5,
-    marginBottom: 10,
-    alignItems: 'center',
-  },
-  gameIdLabel: {
-    fontSize: 11,
-    color: '#7f8c8d',
-    fontFamily: 'monospace',
-  },
-});
-
-export default GameScreen;
+      <View style={[styles.firebaseControls, { backgroundColor: theme.bgSecondary }]}>
+        <TouchableOpacity 
+          style={[styles.firebaseButton, isSaving && styles.buttonDisabled, { backgroundColor: theme.accentBg }]} 
+          onPress={handleSaveGame}
+          disabled={isSaving}
+        >
+          <Text style={[styles.firebaseButtonText, { color: theme.accentText }]}>
+            {isSaving ? 'Guardando...' : '💾 Guardar'}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.firebaseButton, { backgroundColor: theme.accentBg }]} onPress={handleLoadGame}>
+          <Text style={[styles.firebaseButtonText, { color: theme.accentText }]}>📥 Cargar</Text>
+        </TouchableOpacity>
       </View>
-    </View>
+
+      <View style={[styles.gameIdContainer, { backgroundColor: theme.bgSecondary, borderColor: theme.textSecondary }]}>
+        <Text style={[styles.gameIdLabel, { color: theme.textSecondary }]}>ID: {gameId?.slice(0, 12)}...</Text>
+      </View>
+
+      <View style={[styles.moveHistory, { backgroundColor: theme.bgSecondary }]}>
+        <Text style={[styles.moveHistoryTitle, { color: theme.text }]}>Movimientos ({game.getMoveHistory().length})</Text>
+        <Text style={[styles.moveHistoryText, { color: theme.textSecondary }]}>
+          {game
+            .getMoveHistory()
+            .map((move, idx) => `${idx + 1}. ${move.toString()}`)
+            .join('\n')}
+        </Text>
+      </View>
+    </ScrollView>
   );
+};
+
+const lightTheme = {
+  bgPrimary: '#f8f9fa',
+  bgSecondary: '#ffffff',
+  text: '#2c3e50',
+  textSecondary: '#666',
+  accent: '#2ecc71',
+  accentBg: '#27ae60',
+  accentText: '#fff',
+  buttonBg: '#3498db',
+  buttonText: '#fff',
+  statusColor: '#e74c3c',
+};
+
+const darkTheme = {
+  bgPrimary: '#1a1a2e',
+  bgSecondary: '#16213e',
+  text: '#e0e0e0',
+  textSecondary: '#b0b0b0',
+  accent: '#1abc9c',
+  accentBg: '#16a085',
+  accentText: '#1a1a2e',
+  buttonBg: '#0f3460',
+  buttonText: '#1abc9c',
+  statusColor: '#e74c3c',
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
     padding: 10,
+  },
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  backButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+  },
+  backButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  themeToggle: {
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 22,
+    backgroundColor: 'rgba(0,0,0,0.08)',
+  },
+  themeToggleText: {
+    fontSize: 20,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 12,
+    paddingVertical: 12,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 4,
+    elevation: 3,
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#333',
+    fontSize: 30,
+    fontWeight: '800',
   },
   playerInfo: {
     fontSize: 16,
-    color: '#666',
     marginTop: 5,
   },
   status: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#e74c3c',
     marginTop: 5,
   },
   boardContainer: {
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 14,
+    padding: 12,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
   },
   controls: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginBottom: 10,
+    marginBottom: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 2,
   },
   button: {
-    backgroundColor: '#3498db',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 5,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    flex: 1,
+    marginHorizontal: 5,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 3,
   },
   buttonText: {
-    color: '#fff',
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: '600',
+  },
+  firebaseControls: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  firebaseButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    flex: 1,
+    marginHorizontal: 5,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  firebaseButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+  gameIdContainer: {
+    padding: 10,
+    borderRadius: 6,
+    marginBottom: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+  },
+  gameIdLabel: {
+    fontSize: 11,
+    fontFamily: 'monospace',
   },
   moveHistory: {
-    backgroundColor: '#fff',
-    padding: 10,
-    borderRadius: 5,
+    padding: 12,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: 'rgba(0,0,0,0.1)',
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   moveHistoryTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    marginBottom: 5,
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 8,
   },
   moveHistoryText: {
     fontSize: 12,
-    color: '#666',
-    height: 100,
+    minHeight: 80,
   },
 });
 

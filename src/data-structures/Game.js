@@ -1,6 +1,7 @@
 import { Board } from './Board.js';
 import { Move } from './Move.js';
 import { Color } from '../types/index.js';
+import { MoveValidator } from '../logic/moveValidator.js';
 
 export class Game {
   constructor() {
@@ -35,6 +36,11 @@ export class Game {
     }
 
     if (piece.color !== this.currentPlayer) {
+      return false;
+    }
+
+    // Validate move according to rules
+    if (!MoveValidator.isValidMove(this.board, from, to)) {
       return false;
     }
 

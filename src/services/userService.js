@@ -4,7 +4,8 @@ import { firebaseConfig } from '../config/firebase.js';
 
 class UserService {
   constructor() {
-    this.dbUrl = `https://${firebaseConfig.projectId}.firebaseio.com`;
+    // Use the modern default RTDB hostname which includes "-default-rtdb"
+    this.dbUrl = `https://${firebaseConfig.projectId}-default-rtdb.firebaseio.com`;
   }
 
   /**

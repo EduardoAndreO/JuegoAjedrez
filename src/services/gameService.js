@@ -1,10 +1,11 @@
 // Servicio para guardar y cargar partidas de ajedrez en Firebase Realtime Database
 
-import { firebaseConfig } from './firebase.js';
+import { firebaseConfig } from '../config/firebase.js';
 
 class GameService {
   constructor() {
-    this.dbUrl = `https://${firebaseConfig.projectId}.firebaseio.com`;
+    // Use the modern default RTDB hostname which includes "-default-rtdb"
+    this.dbUrl = `https://${firebaseConfig.projectId}-default-rtdb.firebaseio.com`;
   }
 
   /**
